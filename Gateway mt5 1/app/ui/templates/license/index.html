@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - Lizenz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50" x-data="license()">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">{{ app_name }}</h1>
+                    </div>
+                    <div class="hidden md:ml-6 md:flex md:space-x-8">
+                        <a href="/" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Dashboard</a>
+                        <a href="/config" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Konfiguration</a>
+                        <a href="/n8n" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">n8n Integration</a>
+                        <a href="/logs" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Logs</a>
+                        <a href="/license" class="text-blue-600 border-b-2 border-blue-600 px-1 pt-1 text-sm font-medium">Lizenz</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- License Status -->
+        <div class="bg-white shadow rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Lizenz-Status</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-key text-3xl" :class="licenseInfo.status === 'licensed' ? 'text-green-500' : 'text-yellow-500'"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-900">Status</p>
+                            <p class="text-sm text-gray-500" x-text="licenseInfo.status === 'licensed' ? 'Lizenziert' : 'Trial'"></p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-tag text-3xl text-blue-500"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-900">Typ</p>
+                            <p class="text-sm text-gray-500" x-text="licenseInfo.license_type || 'Trial'"></p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-calendar text-3xl text-purple-500"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-900">Ablaufdatum</p>
+                            <p class="text-sm text-gray-500" x-text="licenseInfo.expires_at ? formatDate(licenseInfo.expires_at) : 'Unbegrenzt'"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- License Details -->
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Lizenz-Key</h4>
+                        <div class="bg-gray-100 rounded-md p-3">
+                            <code class="text-sm" x-text="licenseInfo.license_key || 'Trial-Lizenz'"></code>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Hardware-Fingerprint</h4>
+                        <div class="bg-gray-100 rounded-md p-3">
+                            <code class="text-sm" x-text="licenseInfo.hardware_fingerprint || 'N/A'"></code>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Days Remaining -->
+                <div x-show="licenseInfo.days_remaining !== undefined" class="mt-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-clock text-2xl" :class="licenseInfo.days_remaining > 7 ? 'text-green-500' : 'text-yellow-500'"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">
+                                <span x-text="licenseInfo.days_remaining > 0 ? 'Verbleibende Tage: ' + licenseInfo.days_remaining : 'Lizenz abgelaufen'"></span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- License Activation -->
+        <div class="bg-white shadow rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Lizenz aktivieren</h3>
+                <form @submit.prevent="activateLicense()">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div>
+                            <label for="license_key" class="block text-sm font-medium text-gray-700">Lizenz-Key</label>
+                            <div class="mt-1 flex rounded-md shadow-sm">
+                                <input type="text" id="license_key" x-model="activationForm.license_key" class="flex-1 block w-full rounded-none rounded-l-md border-gray-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Geben Sie Ihren Lizenz-Key ein">
+                                <button type="submit" :disabled="activating" class="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-blue-600 text-white text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
+                                    <span x-text="activating ? 'Aktiviere...' : 'Aktivieren'"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                
+                <!-- Activation Result -->
+                <div x-show="activationResult" class="mt-6 p-4 rounded-md" :class="activationResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas" :class="activationResult.success ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-red-400'"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium" :class="activationResult.success ? 'text-green-800' : 'text-red-800'">
+                                <span x-text="activationResult.success ? 'Lizenz erfolgreich aktiviert' : 'Fehler bei der Lizenz-Aktivierung'"></span>
+                            </h3>
+                            <div class="mt-2 text-sm" :class="activationResult.success ? 'text-green-700' : 'text-red-700'">
+                                <p x-text="activationResult.message"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Gates -->
+        <div class="bg-white shadow rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Verfügbare Features</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <template x-for="feature in features" :key="feature.name">
+                        <div class="flex items-center p-3 border rounded-md" :class="feature.enabled ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'">
+                            <div class="flex-shrink-0">
+                                <i class="fas" :class="feature.enabled ? 'fa-check-circle text-green-500' : 'fa-times-circle text-gray-400'"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium" :class="feature.enabled ? 'text-green-900' : 'text-gray-500'" x-text="feature.name"></p>
+                                <p class="text-xs" :class="feature.enabled ? 'text-green-700' : 'text-gray-400'" x-text="feature.description"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Purchase Options -->
+        <div class="bg-white shadow rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Lizenz erwerben</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Basic License -->
+                    <div class="border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">Basic</h4>
+                        <p class="text-3xl font-bold text-gray-900 mb-4">€99<span class="text-sm font-normal text-gray-500">/Monat</span></p>
+                        <ul class="space-y-2 text-sm text-gray-600 mb-6">
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Bis zu 10 parallele Orders
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Standard Trading-Strategien
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                API-Zugang
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                E-Mail Support
+                            </li>
+                        </ul>
+                        <button @click="purchaseLicense('basic')" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Basic kaufen
+                        </button>
+                    </div>
+                    
+                    <!-- Pro License -->
+                    <div class="border border-blue-200 rounded-lg p-6 relative">
+                        <div class="absolute top-0 right-0 bg-blue-600 text-white px-2 py-1 text-xs font-medium rounded-bl-lg">Beliebt</div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">Pro</h4>
+                        <p class="text-3xl font-bold text-gray-900 mb-4">€199<span class="text-sm font-normal text-gray-500">/Monat</span></p>
+                        <ul class="space-y-2 text-sm text-gray-600 mb-6">
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Bis zu 50 parallele Orders
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Erweiterte Trading-Strategien
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Custom Indikatoren
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Prioritäts-Support
+                            </li>
+                        </ul>
+                        <button @click="purchaseLicense('pro')" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Pro kaufen
+                        </button>
+                    </div>
+                    
+                    <!-- Enterprise License -->
+                    <div class="border border-gray-200 rounded-lg p-6">
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">Enterprise</h4>
+                        <p class="text-3xl font-bold text-gray-900 mb-4">€499<span class="text-sm font-normal text-gray-500">/Monat</span></p>
+                        <ul class="space-y-2 text-sm text-gray-600 mb-6">
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Unbegrenzte Orders
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                Alle Trading-Strategien
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                White-Label Optionen
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                24/7 Support
+                            </li>
+                        </ul>
+                        <button @click="purchaseLicense('enterprise')" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Enterprise kaufen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Support -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Support</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Kontakt</h4>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <p><i class="fas fa-envelope mr-2"></i>support@mt5gateway.com</p>
+                            <p><i class="fas fa-phone mr-2"></i>+49 (0) 123 456 789</p>
+                            <p><i class="fas fa-clock mr-2"></i>Mo-Fr 9:00-18:00 CET</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Dokumentation</h4>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <p><i class="fas fa-book mr-2"></i><a href="#" class="text-blue-600 hover:text-blue-800">API-Dokumentation</a></p>
+                            <p><i class="fas fa-video mr-2"></i><a href="#" class="text-blue-600 hover:text-blue-800">Video-Tutorials</a></p>
+                            <p><i class="fas fa-question-circle mr-2"></i><a href="#" class="text-blue-600 hover:text-blue-800">FAQ</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function license() {
+            return {
+                licenseInfo: {
+                    status: 'unlicensed',
+                    license_type: 'trial',
+                    expires_at: null,
+                    days_remaining: 14,
+                    license_key: null,
+                    hardware_fingerprint: null
+                },
+                activationForm: {
+                    license_key: ''
+                },
+                activationResult: null,
+                activating: false,
+                features: [
+                    { name: 'Basic Trading', description: 'Standard Trading-Funktionen', enabled: true },
+                    { name: 'API Access', description: 'REST API für n8n Integration', enabled: true },
+                    { name: 'Advanced Strategies', description: 'Erweiterte Trading-Strategien', enabled: false },
+                    { name: 'Custom Indicators', description: 'Benutzerdefinierte Indikatoren', enabled: false },
+                    { name: 'Unlimited Orders', description: 'Unbegrenzte parallele Orders', enabled: false },
+                    { name: 'Priority Support', description: 'Prioritäts-Support', enabled: false }
+                ],
+                
+                init() {
+                    this.loadLicenseInfo();
+                },
+                
+                async loadLicenseInfo() {
+                    try {
+                        const response = await fetch('/api/v1/license/status');
+                        if (response.ok) {
+                            this.licenseInfo = await response.json();
+                            this.updateFeatureGates();
+                        }
+                    } catch (error) {
+                        console.error('Fehler beim Laden der Lizenz-Informationen:', error);
+                    }
+                },
+                
+                updateFeatureGates() {
+                    // Feature-Gates basierend auf Lizenz-Typ aktualisieren
+                    const licenseType = this.licenseInfo.license_type;
+                    
+                    this.features.forEach(feature => {
+                        switch (feature.name) {
+                            case 'Advanced Strategies':
+                                feature.enabled = ['pro', 'enterprise'].includes(licenseType);
+                                break;
+                            case 'Custom Indicators':
+                                feature.enabled = ['pro', 'enterprise'].includes(licenseType);
+                                break;
+                            case 'Unlimited Orders':
+                                feature.enabled = licenseType === 'enterprise';
+                                break;
+                            case 'Priority Support':
+                                feature.enabled = ['pro', 'enterprise'].includes(licenseType);
+                                break;
+                        }
+                    });
+                },
+                
+                async activateLicense() {
+                    this.activating = true;
+                    this.activationResult = null;
+                    
+                    try {
+                        const response = await fetch('/api/v1/license/activate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.activationForm)
+                        });
+                        
+                        const result = await response.json();
+                        this.activationResult = {
+                            success: response.ok,
+                            message: result.message || (response.ok ? 'Lizenz erfolgreich aktiviert' : 'Fehler bei der Aktivierung')
+                        };
+                        
+                        if (response.ok) {
+                            this.loadLicenseInfo();
+                            this.activationForm.license_key = '';
+                        }
+                        
+                    } catch (error) {
+                        this.activationResult = {
+                            success: false,
+                            message: 'Netzwerk-Fehler: ' + error.message
+                        };
+                    } finally {
+                        this.activating = false;
+                    }
+                },
+                
+                purchaseLicense(licenseType) {
+                    // Hier würde normalerweise zur Stripe-Checkout-Seite weitergeleitet
+                    alert(`Weiterleitung zur Kauf-Seite für ${licenseType} Lizenz`);
+                },
+                
+                formatDate(dateString) {
+                    return new Date(dateString).toLocaleDateString('de-DE');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

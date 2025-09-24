@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - Logs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50" x-data="logs()">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">{{ app_name }}</h1>
+                    </div>
+                    <div class="hidden md:ml-6 md:flex md:space-x-8">
+                        <a href="/" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Dashboard</a>
+                        <a href="/config" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Konfiguration</a>
+                        <a href="/n8n" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">n8n Integration</a>
+                        <a href="/logs" class="text-blue-600 border-b-2 border-blue-600 px-1 pt-1 text-sm font-medium">Logs</a>
+                        <a href="/license" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Lizenz</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Log Filters -->
+        <div class="bg-white shadow rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Log-Filter</h3>
+                <form @submit.prevent="searchLogs()">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label for="log_type" class="block text-sm font-medium text-gray-700">Log-Typ</label>
+                            <select id="log_type" x-model="filters.log_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                <option value="all">Alle</option>
+                                <option value="main">Haupt-Log</option>
+                                <option value="error">Error-Log</option>
+                                <option value="audit">Audit-Log</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="log_level" class="block text-sm font-medium text-gray-700">Level</label>
+                            <select id="log_level" x-model="filters.log_level" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                <option value="all">Alle</option>
+                                <option value="DEBUG">DEBUG</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="ERROR">ERROR</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="search_query" class="block text-sm font-medium text-gray-700">Suchbegriff</label>
+                            <input type="text" id="search_query" x-model="filters.search_query" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Suchbegriff eingeben">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" :disabled="searching" class="w-full bg-blue-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
+                                <span x-text="searching ? 'Suche...' : 'Suchen'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Log Files -->
+        <div class="bg-white shadow rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Log-Dateien</h3>
+                    <button @click="refreshLogFiles()" :disabled="refreshing" class="bg-gray-200 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
+                        <i class="fas fa-sync-alt mr-2" :class="refreshing ? 'animate-spin' : ''"></i>
+                        Aktualisieren
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dateiname</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Größe</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Geändert</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="logFile in logFiles" :key="logFile.filename">
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="logFile.filename"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatFileSize(logFile.size)"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(logFile.modified)"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <button @click="viewLogFile(logFile.filename)" class="text-blue-600 hover:text-blue-900 mr-3">
+                                            <i class="fas fa-eye"></i> Anzeigen
+                                        </button>
+                                        <button @click="downloadLogFile(logFile.filename)" class="text-green-600 hover:text-green-900">
+                                            <i class="fas fa-download"></i> Download
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="logFiles.length === 0">
+                                <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">
+                                    Keine Log-Dateien gefunden
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Viewer -->
+        <div class="bg-white shadow rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">
+                        <span x-text="selectedLogFile ? 'Log: ' + selectedLogFile : 'Log-Viewer'"></span>
+                    </h3>
+                    <div class="flex space-x-2">
+                        <button @click="clearLogViewer()" class="bg-gray-200 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="fas fa-times mr-2"></i>Löschen
+                        </button>
+                        <button @click="refreshLogContent()" :disabled="loading" class="bg-blue-600 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
+                            <i class="fas fa-sync-alt mr-2" :class="loading ? 'animate-spin' : ''"></i>Aktualisieren
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Log Content -->
+                <div class="bg-gray-900 rounded-md p-4 h-96 overflow-y-auto">
+                    <pre class="text-green-400 text-sm font-mono" x-text="logContent || 'Wählen Sie eine Log-Datei aus, um den Inhalt anzuzeigen'"></pre>
+                </div>
+                
+                <!-- Log Statistics -->
+                <div x-show="logStats" class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-gray-100 rounded-md p-3">
+                        <p class="text-sm font-medium text-gray-700">Gesamt-Zeilen</p>
+                        <p class="text-lg font-semibold text-gray-900" x-text="logStats.total_lines || 0"></p>
+                    </div>
+                    <div class="bg-gray-100 rounded-md p-3">
+                        <p class="text-sm font-medium text-gray-700">Error-Zeilen</p>
+                        <p class="text-lg font-semibold text-red-600" x-text="logStats.error_lines || 0"></p>
+                    </div>
+                    <div class="bg-gray-100 rounded-md p-3">
+                        <p class="text-sm font-medium text-gray-700">Warning-Zeilen</p>
+                        <p class="text-lg font-semibold text-yellow-600" x-text="logStats.warning_lines || 0"></p>
+                    </div>
+                    <div class="bg-gray-100 rounded-md p-3">
+                        <p class="text-sm font-medium text-gray-700">Info-Zeilen</p>
+                        <p class="text-lg font-semibold text-blue-600" x-text="logStats.info_lines || 0"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Search Results -->
+        <div x-show="searchResults.length > 0" class="bg-white shadow rounded-lg mb-8">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Suchergebnisse</h3>
+                <div class="space-y-4">
+                    <template x-for="result in searchResults" :key="result.id">
+                        <div class="border border-gray-200 rounded-md p-4">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2 mb-2">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" :class="getLevelColor(result.log_entry.level)" x-text="result.log_entry.level"></span>
+                                        <span class="text-sm text-gray-500" x-text="result.log_file"></span>
+                                        <span class="text-sm text-gray-500" x-text="formatDate(result.log_entry.timestamp)"></span>
+                                    </div>
+                                    <p class="text-sm text-gray-900" x-text="result.log_entry.message"></p>
+                                    <div x-show="result.log_entry.trace_id" class="mt-1">
+                                        <span class="text-xs text-gray-500">Trace ID: </span>
+                                        <code class="text-xs text-gray-700" x-text="result.log_entry.trace_id"></code>
+                                    </div>
+                                </div>
+                                <button @click="viewLogEntry(result)" class="ml-4 text-blue-600 hover:text-blue-900">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Log Statistics -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">System-Statistiken</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-100 rounded-md p-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Log-Verzeichnis</h4>
+                        <p class="text-sm text-gray-900" x-text="systemStats.log_directory || 'N/A'"></p>
+                    </div>
+                    <div class="bg-gray-100 rounded-md p-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Gesamt-Größe</h4>
+                        <p class="text-sm text-gray-900" x-text="formatFileSize(systemStats.total_size_bytes || 0)"></p>
+                    </div>
+                    <div class="bg-gray-100 rounded-md p-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">Anzahl Dateien</h4>
+                        <p class="text-sm text-gray-900" x-text="systemStats.total_files || 0"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function logs() {
+            return {
+                filters: {
+                    log_type: 'all',
+                    log_level: 'all',
+                    search_query: ''
+                },
+                logFiles: [],
+                selectedLogFile: null,
+                logContent: '',
+                logStats: null,
+                searchResults: [],
+                systemStats: {},
+                searching: false,
+                loading: false,
+                refreshing: false,
+                
+                init() {
+                    this.loadLogFiles();
+                    this.loadSystemStats();
+                },
+                
+                async loadLogFiles() {
+                    try {
+                        const response = await fetch('/api/v1/logs/files');
+                        if (response.ok) {
+                            this.logFiles = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Fehler beim Laden der Log-Dateien:', error);
+                    }
+                },
+                
+                async loadSystemStats() {
+                    try {
+                        const response = await fetch('/api/v1/logs/stats');
+                        if (response.ok) {
+                            this.systemStats = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Fehler beim Laden der System-Statistiken:', error);
+                    }
+                },
+                
+                async searchLogs() {
+                    this.searching = true;
+                    this.searchResults = [];
+                    
+                    try {
+                        const params = new URLSearchParams();
+                        if (this.filters.log_type !== 'all') params.append('log_type', this.filters.log_type);
+                        if (this.filters.log_level !== 'all') params.append('log_level', this.filters.log_level);
+                        if (this.filters.search_query) params.append('query', this.filters.search_query);
+                        
+                        const response = await fetch(`/api/v1/logs/search?${params}`);
+                        if (response.ok) {
+                            this.searchResults = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Fehler bei der Log-Suche:', error);
+                    } finally {
+                        this.searching = false;
+                    }
+                },
+                
+                async viewLogFile(filename) {
+                    this.selectedLogFile = filename;
+                    this.loading = true;
+                    
+                    try {
+                        const response = await fetch(`/api/v1/logs/view/${filename}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.logContent = data.content;
+                            this.logStats = data.stats;
+                        }
+                    } catch (error) {
+                        console.error('Fehler beim Laden der Log-Datei:', error);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async downloadLogFile(filename) {
+                    try {
+                        const response = await fetch(`/api/v1/logs/download/${filename}`);
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                        }
+                    } catch (error) {
+                        console.error('Fehler beim Download der Log-Datei:', error);
+                    }
+                },
+                
+                async refreshLogFiles() {
+                    this.refreshing = true;
+                    await this.loadLogFiles();
+                    this.refreshing = false;
+                },
+                
+                async refreshLogContent() {
+                    if (this.selectedLogFile) {
+                        await this.viewLogFile(this.selectedLogFile);
+                    }
+                },
+                
+                clearLogViewer() {
+                    this.selectedLogFile = null;
+                    this.logContent = '';
+                    this.logStats = null;
+                },
+                
+                viewLogEntry(result) {
+                    // Zeige Log-Eintrag im Viewer
+                    this.logContent = JSON.stringify(result.log_entry, null, 2);
+                    this.selectedLogFile = result.log_file;
+                },
+                
+                formatFileSize(bytes) {
+                    if (bytes === 0) return '0 Bytes';
+                    const k = 1024;
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                },
+                
+                formatDate(dateString) {
+                    return new Date(dateString).toLocaleString('de-DE');
+                },
+                
+                getLevelColor(level) {
+                    switch (level) {
+                        case 'ERROR': return 'bg-red-100 text-red-800';
+                        case 'WARNING': return 'bg-yellow-100 text-yellow-800';
+                        case 'INFO': return 'bg-blue-100 text-blue-800';
+                        case 'DEBUG': return 'bg-gray-100 text-gray-800';
+                        default: return 'bg-gray-100 text-gray-800';
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

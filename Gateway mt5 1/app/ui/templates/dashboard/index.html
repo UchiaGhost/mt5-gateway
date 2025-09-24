@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-50" x-data="dashboard()">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">{{ app_name }}</h1>
+                    </div>
+                    <div class="hidden md:ml-6 md:flex md:space-x-8">
+                        <a href="/" class="text-blue-600 border-b-2 border-blue-600 px-1 pt-1 text-sm font-medium">Dashboard</a>
+                        <a href="/config" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Konfiguration</a>
+                        <a href="/n8n" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">n8n Integration</a>
+                        <a href="/logs" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Logs</a>
+                        <a href="/license" class="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">Lizenz</a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-500">Version {{ version }}</span>
+                        <button @click="toggleTheme()" class="p-2 rounded-md text-gray-400 hover:text-gray-500">
+                            <i class="fas fa-moon" x-show="!darkMode"></i>
+                            <i class="fas fa-sun" x-show="darkMode"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Status Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- MT5 Status -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-chart-line text-2xl" :class="mt5Status.connected ? 'text-green-500' : 'text-red-500'"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">MT5 Status</dt>
+                                <dd class="text-lg font-medium text-gray-900" x-text="mt5Status.connected ? 'Verbunden' : 'Getrennt'"></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Balance -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-wallet text-2xl text-blue-500"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Balance</dt>
+                                <dd class="text-lg font-medium text-gray-900" x-text="accountInfo.balance ? accountInfo.balance.toFixed(2) + ' ' + accountInfo.currency : 'N/A'"></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Open Positions -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-chart-bar text-2xl text-purple-500"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Offene Positionen</dt>
+                                <dd class="text-lg font-medium text-gray-900" x-text="positions.length"></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- License Status -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-key text-2xl" :class="licenseStatus.status === 'licensed' ? 'text-green-500' : 'text-yellow-500'"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Lizenz</dt>
+                                <dd class="text-lg font-medium text-gray-900" x-text="licenseStatus.license_type || 'Trial'"></dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Recent Signals -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Letzte Signale</h3>
+                    <div class="flow-root">
+                        <ul class="-my-5 divide-y divide-gray-200">
+                            <template x-for="signal in recentSignals" :key="signal.id">
+                                <li class="py-4">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-8 w-8 rounded-full flex items-center justify-center" :class="signal.success ? 'bg-green-100' : 'bg-red-100'">
+                                                <i class="fas" :class="signal.success ? 'fa-check text-green-600' : 'fa-times text-red-600'"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-gray-900 truncate" x-text="signal.strategy"></p>
+                                            <p class="text-sm text-gray-500" x-text="signal.symbol + ' ' + signal.side"></p>
+                                        </div>
+                                        <div class="flex-shrink-0 text-sm text-gray-500" x-text="formatTime(signal.timestamp)"></div>
+                                    </div>
+                                </li>
+                            </template>
+                            <li x-show="recentSignals.length === 0" class="py-4 text-center text-gray-500">
+                                Keine Signale verfügbar
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Open Positions -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Offene Positionen</h3>
+                    <div class="flow-root">
+                        <ul class="-my-5 divide-y divide-gray-200">
+                            <template x-for="position in positions" :key="position.ticket">
+                                <li class="py-4">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-8 w-8 rounded-full flex items-center justify-center" :class="position.type === 'buy' ? 'bg-blue-100' : 'bg-red-100'">
+                                                <i class="fas" :class="position.type === 'buy' ? 'fa-arrow-up text-blue-600' : 'fa-arrow-down text-red-600'"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-gray-900" x-text="position.symbol"></p>
+                                            <p class="text-sm text-gray-500" x-text="position.volume + ' Lots @ ' + position.price_open"></p>
+                                        </div>
+                                        <div class="flex-shrink-0">
+                                            <p class="text-sm font-medium" :class="position.profit >= 0 ? 'text-green-600' : 'text-red-600'" x-text="position.profit.toFixed(2)"></p>
+                                        </div>
+                                    </div>
+                                </li>
+                            </template>
+                            <li x-show="positions.length === 0" class="py-4 text-center text-gray-500">
+                                Keine offenen Positionen
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Health -->
+        <div class="mt-8 bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">System Health</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-database text-2xl text-green-500"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">Datenbank</p>
+                            <p class="text-sm text-gray-500">Verbunden</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-memory text-2xl text-blue-500"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">Redis</p>
+                            <p class="text-sm text-gray-500" x-text="systemHealth.redis"></p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-server text-2xl text-purple-500"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">Server</p>
+                            <p class="text-sm text-gray-500" x-text="systemHealth.status"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function dashboard() {
+            return {
+                darkMode: false,
+                mt5Status: { connected: false },
+                accountInfo: { balance: 0, currency: 'USD' },
+                positions: [],
+                recentSignals: [],
+                licenseStatus: { status: 'unlicensed', license_type: 'trial' },
+                systemHealth: { redis: 'Unknown', status: 'Unknown' },
+                
+                init() {
+                    this.loadDashboardData();
+                    setInterval(() => this.loadDashboardData(), 30000); // Alle 30 Sekunden aktualisieren
+                },
+                
+                async loadDashboardData() {
+                    try {
+                        // MT5 Status laden
+                        const mt5Response = await fetch('/api/v1/health');
+                        if (mt5Response.ok) {
+                            const health = await mt5Response.json();
+                            this.systemHealth = health;
+                            this.mt5Status.connected = health.mt5_connected;
+                        }
+                        
+                        // Account Info laden
+                        const accountResponse = await fetch('/api/v1/account');
+                        if (accountResponse.ok) {
+                            this.accountInfo = await accountResponse.json();
+                        }
+                        
+                        // Positionen laden
+                        const positionsResponse = await fetch('/api/v1/positions');
+                        if (positionsResponse.ok) {
+                            const data = await positionsResponse.json();
+                            this.positions = data.positions || [];
+                        }
+                        
+                        // Lizenz Status laden
+                        const licenseResponse = await fetch('/api/v1/license/status');
+                        if (licenseResponse.ok) {
+                            this.licenseStatus = await licenseResponse.json();
+                        }
+                        
+                    } catch (error) {
+                        console.error('Fehler beim Laden der Dashboard-Daten:', error);
+                    }
+                },
+                
+                formatTime(timestamp) {
+                    return new Date(timestamp).toLocaleString('de-DE');
+                },
+                
+                toggleTheme() {
+                    this.darkMode = !this.darkMode;
+                    // Theme-Logik hier implementieren
+                }
+            }
+        }
+    </script>
+</body>
+</html>
